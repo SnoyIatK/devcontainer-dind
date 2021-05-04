@@ -1,0 +1,81 @@
+version: "3"
+
+services:
+  # docker:
+  #   image: docker:dind
+  #   privileged: true
+  #   expose:
+  #     - 2375
+  #     - 2376
+  #   volumes:
+  #     - dind-var-lib-docker:/var/lib/docker
+  #     - docker-certs:/certs
+  #   environment:
+  #     - DOCKER_TLS_CERTDIR=
+  #   #   - DOCKER_TLS_CERTDIR=/certs
+
+  # # Docker-build service, using docker:dind service as docker daemon
+  # # Set DOCKER_TLS_VERIFY=0 doesn't work
+  # docker-build:
+  #   image: docker:latest
+  #   privileged: true
+  #   volumes:
+  #     - docker-certs:/certs
+  #   entrypoint: docker-entrypoint.sh
+  #   command: ["sleep", "infinity"]
+  #   environment:
+  #     - DOCKER_HOST=tcp://docker:2375
+  #     # - DOCKER_TLS_VERIFY=1
+  #     # - DOCKER_CERT_PATH=/certs/client
+
+  dev-dfd:
+    container_name: dev-dfd
+    build:
+      context: .
+      dockerfile: debian.Dockerfile
+      args:
+        - USE_DIND=false
+    init: true
+    privileged: true
+    # Overrides default command so things don't shut down after the process ends.
+    entrypoint: /usr/local/share/docker-init.sh
+    command: sleep infinity
+    # Uncomment the next line to use a non-root user for all processes.
+    user: vscode
+
+    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+    volumes:
+      # Forwards the local Docker socket to the container.
+      - /var/run/docker.sock:/var/run/docker-host.sock
+      - ..:/workspace:cached
+
+  dev-dind:
+    container_name: dev-dind
+    build:
+      context: .
+      dockerfile: debian.Dockerfile
+      args:
+        - USE_DIND=true
+        - INSTALL_DIND=true
+    init: true
+    privileged: true
+    # Overrides default command so things don't shut down after the process ends.
+    entrypoint: /usr/local/share/docker-init.sh
+    command: sleep infinity
+
+    # Uncomment the next line to use a non-root user for all processes.
+    user: vscode
+
+    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+    volumes:
+      - dind-var-lib-docker:/var/lib/docker
+      - ..:/workspace:cached
+    # environment:
+    #   # Use docker:dind if docker daemon is not installed
+    #   - DOCKER_HOST=tcp://docker:2375
+
+volumes:
+  dind-var-lib-docker:
+  docker-certs:
