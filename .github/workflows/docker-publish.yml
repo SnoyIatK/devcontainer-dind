@@ -1,16 +1,15 @@
-name: Docker
+name: Build & push docker images
 
 on:
   push:
-    # Publish `$default-branch` as Docker `latest` image.
     branches:
-      - $default-branch
+      - main
       - master
-      - develop
       - staging
+      - test
       - ci
+      - develop
 
-    # Publish `v1.2.3` tags as releases.
     tags:
       - v*
       - release/v*
@@ -19,40 +18,22 @@ env:
   IMAGE_NAME: devcontainer-dind
 
 jobs:
-  # # Run tests.
-  # # See also https://docs.docker.com/docker-hub/builds/automated-testing/
-  # test:
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - uses: actions/checkout@v2
-
-  #     - name: Run tests
-  #       run: |
-  #         if [ -f docker-compose.test.yml ]; then
-  #           docker-compose --file docker-compose.test.yml build
-  #           docker-compose --file docker-compose.test.yml run sut
-  #         else
-  #           docker build . --file Dockerfile
-  #         fi
-
-  push:
-    # Ensure test job passes before pushing image.
-    # needs: test
-
-    runs-on: ubuntu-latest
+  build_and_push:
+    name: Build and push
+    if: "!contains(github.event.head_commit.message, 'Automated update') && !contains(github.event.head_commit.message, 'CI ignore')"
     # if: github.event_name == 'push'
-
-    # permissions:
-    #   contents: read
-    #   packages: write
-    env:
-      VARIANT: base
 
     strategy:
       matrix:
         target: ["dotnet"]
+        variant: ["debian"]
       fail-fast: true
+
+    runs-on: ubuntu-latest
+
+    # permissions:
+    #   contents: read
+    #   packages: write
 
     steps:
       # - name: Free more space
@@ -68,7 +49,7 @@ jobs:
         id: checkout
         uses: actions/checkout@v2
 
-      - name: Docker meta
+      - name: DockerHub meta
         id: meta_docker
         uses: crazy-max/ghaction-docker-meta@v2
         with:
@@ -82,7 +63,7 @@ jobs:
             type=sha,prefix=${{ matrix.target }}-
             type=edge
 
-      - name: Docker meta
+      - name: Github Container Registry meta
         id: meta_ghcr
         uses: crazy-max/ghaction-docker-meta@v2
         with:
@@ -104,7 +85,7 @@ jobs:
       #     # Strip "v" prefix from tag name
       #     [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
       #     # Use Docker `latest` tag convention
-      #     [ "$VERSION" == "$default-branch" ] && VERSION=latest
+      #     [ "$VERSION" == "main" ] && VERSION=latest
       #     echo "::set-output name=tag::$(echo "$VERSION")"
       #     # Or
       #     echo "::set-output name=tag::$(echo "${{ github.ref }}" | grep -oP 'refs/tags/\K(.+)')"
@@ -126,7 +107,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: containers/${{ matrix.target }}/.devcontainer
-          file: containers/${{ matrix.target }}/.devcontainer/${{ env.VARIANT }}.Dockerfile
+          file: containers/${{ matrix.target }}/.devcontainer/${{ matrix.variant }}.Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ steps.meta_docker.outputs.tags }}
